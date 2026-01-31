@@ -18,6 +18,7 @@ interface UseWebSocketReturn {
   isStreaming: boolean;
   connect: () => void;
   disconnect: () => void;
+  addTopic: (topic: string) => void;
 }
 
 const WS_URL = 'ws://localhost:8000/ws/briefing';
@@ -107,6 +108,12 @@ export function useWebSocket(): UseWebSocketReturn {
     setIsStreaming(false);
   }, []);
 
+  const addTopic = useCallback((topic: string) => {
+    if (topic.trim()) {
+      setTopics((prev) => [...prev, topic.trim()]);
+    }
+  }, []);
+
   useEffect(() => {
     return () => {
       disconnect();
@@ -121,5 +128,6 @@ export function useWebSocket(): UseWebSocketReturn {
     isStreaming,
     connect,
     disconnect,
+    addTopic,
   };
 }

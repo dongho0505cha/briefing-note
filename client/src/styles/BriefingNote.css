@@ -224,6 +224,101 @@
   flex: 1;
 }
 
+/* 안건 추가 영역 */
+.add-topic-area {
+  margin-top: 10px;
+  padding-right: 30px;
+}
+
+.add-topic-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px dashed rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.add-topic-button:hover {
+  border-color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.9);
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.add-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.2);
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.add-topic-input-wrapper {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.add-topic-input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 2px solid var(--accent-color);
+  border-radius: 8px;
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+  font-size: 13px;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.add-topic-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.add-topic-input:focus {
+  background-color: rgba(255, 255, 255, 0.15);
+  border-color: var(--accent-light);
+}
+
+.add-topic-confirm,
+.add-topic-cancel {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.add-topic-confirm {
+  background-color: var(--accent-color);
+  color: white;
+}
+
+.add-topic-confirm:hover {
+  background-color: var(--accent-dark);
+}
+
+.add-topic-cancel {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.add-topic-cancel:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
 /* 연결 상태 표시 */
 .connection-status {
   display: flex;

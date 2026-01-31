@@ -24,10 +24,13 @@ const DEFAULT_WIDTH = 500;
 const DEFAULT_HEIGHT = 900;
 
 function BriefingNote({ onClose }: BriefingNoteProps) {
-  const { isConnected, topics, activeTopicIndex, summary, isStreaming, connect, disconnect } = useWebSocket();
+  const { isConnected, topics, activeTopicIndex, summary, isStreaming, connect, disconnect, addTopic } = useWebSocket();
   const summaryRef = useRef<HTMLDivElement>(null);
   const topicsContainerRef = useRef<HTMLDivElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [isAddingTopic, setIsAddingTopic] = useState(false);
+  const [newTopicText, setNewTopicText] = useState('');
 
   // 위치 및 크기 상태 (우측 하단에 배치)
   const [position, setPosition] = useState<Position>({
@@ -166,6 +169,33 @@ function BriefingNote({ onClose }: BriefingNoteProps) {
     onClose();
   };
 
+  const handleAddTopicClick = () => {
+    setIsAddingTopic(true);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
+  const handleTopicSubmit = () => {
+    if (newTopicText.trim()) {
+      addTopic(newTopicText);
+      setNewTopicText('');
+      setIsAddingTopic(false);
+    }
+  };
+
+  const handleTopicInputKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleTopicSubmit();
+    } else if (e.key === 'Escape') {
+      setNewTopicText('');
+      setIsAddingTopic(false);
+    }
+  };
+
+  const handleTopicInputCancel = () => {
+    setNewTopicText('');
+    setIsAddingTopic(false);
+  };
+
   return (
     <div
       ref={popupRef}
@@ -208,6 +238,34 @@ function BriefingNote({ onClose }: BriefingNoteProps) {
             <div className="topic-item loading">
               <span className="topic-text">회의 주제를 불러오는 중...</span>
             </div>
+          )}
+        </div>
+
+        {/* 안건 추가 영역 */}
+        <div className="add-topic-area">
+          {isAddingTopic ? (
+            <div className="add-topic-input-wrapper">
+              <input
+                ref={inputRef}
+                type="text"
+                className="add-topic-input"
+                placeholder="새 안건을 입력하세요..."
+                value={newTopicText}
+                onChange={(e) => setNewTopicText(e.target.value)}
+                onKeyDown={handleTopicInputKeyDown}
+              />
+              <button className="add-topic-confirm" onClick={handleTopicSubmit}>
+                추가
+              </button>
+              <button className="add-topic-cancel" onClick={handleTopicInputCancel}>
+                취소
+              </button>
+            </div>
+          ) : (
+            <button className="add-topic-button" onClick={handleAddTopicClick}>
+              <span className="add-icon">+</span>
+              <span>안건 추가</span>
+            </button>
           )}
         </div>
         <div className="connection-status">
