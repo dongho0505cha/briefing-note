@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 
 interface WebSocketMessage {
-  type: 'connected' | 'topic' | 'summary_start' | 'summary_chunk' | 'summary_end' | 'separator';
-  data?: string;
+  type: 'connected' | 'topics_list' | 'active_topic' | 'summary_start' | 'summary_chunk' | 'summary_end' | 'separator';
+  data?: string | string[];
+  index?: number;
   message?: string;
 }
 
@@ -11,7 +12,8 @@ export const SEPARATOR_MARKER = '___SEPARATOR___';
 
 interface UseWebSocketReturn {
   isConnected: boolean;
-  topic: string;
+  topics: string[];
+  activeTopicIndex: number;
   summary: string;
   isStreaming: boolean;
   connect: () => void;
@@ -22,7 +24,8 @@ const WS_URL = 'ws://localhost:8000/ws/briefing';
 
 export function useWebSocket(): UseWebSocketReturn {
   const [isConnected, setIsConnected] = useState(false);
-  const [topic, setTopic] = useState('');
+  const [topics, setTopics] = useState<string[]>([]);
+  const [activeTopicIndex, setActiveTopicIndex] = useState(-1);
   const [summary, setSummary] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
@@ -47,8 +50,18 @@ export function useWebSocket(): UseWebSocketReturn {
           console.log(message.message);
           break;
 
-        case 'topic':
-          setTopic(message.data || '');
+        case 'topics_list':
+          // 모든 topic 목록 수신
+          if (Array.isArray(message.data)) {
+            setTopics(message.data);
+          }
+          break;
+
+        case 'active_topic':
+          // 활성 topic 인덱스 수신
+          if (typeof message.index === 'number') {
+            setActiveTopicIndex(message.index);
+          }
           break;
 
         case 'summary_start':
@@ -88,7 +101,8 @@ export function useWebSocket(): UseWebSocketReturn {
       wsRef.current = null;
     }
     setIsConnected(false);
-    setTopic('');
+    setTopics([]);
+    setActiveTopicIndex(-1);
     setSummary('');
     setIsStreaming(false);
   }, []);
@@ -101,7 +115,8 @@ export function useWebSocket(): UseWebSocketReturn {
 
   return {
     isConnected,
-    topic,
+    topics,
+    activeTopicIndex,
     summary,
     isStreaming,
     connect,

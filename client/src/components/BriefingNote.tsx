@@ -20,16 +20,14 @@ interface Size {
 
 const MIN_WIDTH = 280;
 const MIN_HEIGHT = 300;
-const DEFAULT_WIDTH = 350;
-const DEFAULT_HEIGHT = 450;
+const DEFAULT_WIDTH = 500;
+const DEFAULT_HEIGHT = 900;
 
 function BriefingNote({ onClose }: BriefingNoteProps) {
-  const { isConnected, topic, summary, isStreaming, connect, disconnect } = useWebSocket();
+  const { isConnected, topics, activeTopicIndex, summary, isStreaming, connect, disconnect } = useWebSocket();
   const summaryRef = useRef<HTMLDivElement>(null);
-  const topicRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const topicsContainerRef = useRef<HTMLDivElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
-  const [isOverflow, setIsOverflow] = useState(false);
 
   // 위치 및 크기 상태 (우측 하단에 배치)
   const [position, setPosition] = useState<Position>({
@@ -60,14 +58,15 @@ function BriefingNote({ onClose }: BriefingNoteProps) {
     }
   }, [summary]);
 
-  // 주제 텍스트가 컨테이너보다 길면 슬라이드 애니메이션 활성화
+  // 활성 주제로 스크롤
   useEffect(() => {
-    if (topicRef.current && containerRef.current) {
-      const textWidth = topicRef.current.scrollWidth;
-      const containerWidth = containerRef.current.clientWidth;
-      setIsOverflow(textWidth > containerWidth);
+    if (topicsContainerRef.current && activeTopicIndex >= 0) {
+      const activeItem = topicsContainerRef.current.children[activeTopicIndex] as HTMLElement;
+      if (activeItem) {
+        activeItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
     }
-  }, [topic, size.width]);
+  }, [activeTopicIndex]);
 
   // 드래그 시작
   const handleDragStart = useCallback((e: React.MouseEvent) => {
@@ -192,17 +191,24 @@ function BriefingNote({ onClose }: BriefingNoteProps) {
         <button className="close-button" onClick={handleClose}>
           &times;
         </button>
-        <div className="topic-container" ref={containerRef}>
-          <div className={`topic-wrapper ${isOverflow ? 'marquee' : ''}`}>
-            <span ref={topicRef} className="topic-text">
-              <Markdown remarkPlugins={[remarkGfm]}>{topic || '회의 주제를 불러오는 중...'}</Markdown>
-            </span>
-            {isOverflow && (
-              <span className="topic-text">
-                <Markdown remarkPlugins={[remarkGfm]}>{topic}</Markdown>
-              </span>
-            )}
-          </div>
+        <div className="topics-list" ref={topicsContainerRef}>
+          {topics.length > 0 ? (
+            topics.map((topicText, index) => (
+              <div
+                key={index}
+                className={`topic-item ${index === activeTopicIndex ? 'active' : ''} ${index < activeTopicIndex ? 'completed' : ''}`}
+              >
+                <span className="topic-number">{index + 1}</span>
+                <span className="topic-text">
+                  <Markdown remarkPlugins={[remarkGfm]}>{topicText}</Markdown>
+                </span>
+              </div>
+            ))
+          ) : (
+            <div className="topic-item loading">
+              <span className="topic-text">회의 주제를 불러오는 중...</span>
+            </div>
+          )}
         </div>
         <div className="connection-status">
           <span className={`status-dot ${isConnected ? 'connected' : 'disconnected'}`}></span>

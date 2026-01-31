@@ -136,15 +136,13 @@ async def root():
 
 
 async def send_topics(websocket: WebSocket, stop_event: asyncio.Event):
-    """topic을 20초 간격으로 전송하는 태스크"""
+    """topic 활성 인덱스를 20초 간격으로 전송하는 태스크"""
     topic_index = 0
     try:
         while not stop_event.is_set() and topic_index < len(SAMPLE_MEETING_DATA):
-            if topic_index > 0:
-                await manager.send_message({"type": "topic_separator"}, websocket)
-
+            # 활성 topic 인덱스 전송
             await manager.send_message(
-                {"type": "topic", "data": SAMPLE_MEETING_DATA[topic_index]["topic"]},
+                {"type": "active_topic", "index": topic_index},
                 websocket
             )
             topic_index += 1
@@ -200,6 +198,12 @@ async def websocket_endpoint(websocket: WebSocket):
         # 연결 성공 메시지
         await manager.send_message(
             {"type": "connected", "message": "WebSocket 연결이 성공했습니다."}, websocket
+        )
+
+        # 모든 topic 목록 전송 (처음에 한 번만)
+        all_topics = [item["topic"] for item in SAMPLE_MEETING_DATA]
+        await manager.send_message(
+            {"type": "topics_list", "data": all_topics}, websocket
         )
 
         # topic과 summary를 각각 독립적인 태스크로 실행
