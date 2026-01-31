@@ -23,10 +23,8 @@ function App() {
         <p>브리핑 노트 버튼을 클릭하여 실시간 회의 요약을 확인하세요.</p>
       </main>
 
-      <button className="briefing-button" onClick={handleTogglePopup}>
-        브리핑
-        <br />
-        노트
+      <button className="briefing-button" onClick={handleTogglePopup} title="브리핑 노트">
+        📝
       </button>
 
       {isPopupOpen && <BriefingNote onClose={() => setIsPopupOpen(false)} />}

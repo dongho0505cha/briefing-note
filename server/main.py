@@ -135,46 +135,68 @@ async def root():
     return {"message": "Briefing Note WebSocket Server", "status": "running"}
 
 
+async def send_topics(websocket: WebSocket, stop_event: asyncio.Event):
+    """topic을 20초 간격으로 전송하는 태스크"""
+    topic_index = 0
+    try:
+        while not stop_event.is_set():
+            if topic_index > 0:
+                await manager.send_message({"type": "topic_separator"}, websocket)
+
+            await manager.send_message(
+                {"type": "topic", "data": SAMPLE_MEETING_DATA[topic_index % len(SAMPLE_MEETING_DATA)]["topic"]},
+                websocket
+            )
+            topic_index += 1
+
+            # 20초 대기 (stop_event 체크하면서)
+            try:
+                await asyncio.wait_for(stop_event.wait(), timeout=20)
+                break  # stop_event가 설정되면 종료
+            except asyncio.TimeoutError:
+                pass  # 타임아웃이면 계속 진행
+    except Exception:
+        pass  # 연결 끊김 등의 예외 처리
+
+
+async def send_summaries(websocket: WebSocket, stop_event: asyncio.Event):
+    """summary를 10초 간격으로 전송하는 태스크"""
+    summary_index = 0
+    try:
+        while not stop_event.is_set():
+            if summary_index > 0:
+                await manager.send_message({"type": "separator"}, websocket)
+
+            await stream_summary(websocket, SAMPLE_MEETING_DATA[summary_index % len(SAMPLE_MEETING_DATA)]["summary"])
+            summary_index += 1
+
+            # 10초 대기 (stop_event 체크하면서)
+            try:
+                await asyncio.wait_for(stop_event.wait(), timeout=10)
+                break  # stop_event가 설정되면 종료
+            except asyncio.TimeoutError:
+                pass  # 타임아웃이면 계속 진행
+    except Exception:
+        pass  # 연결 끊김 등의 예외 처리
+
+
 @app.websocket("/ws/briefing")
 async def websocket_endpoint(websocket: WebSocket):
     """브리핑 노트 WebSocket 엔드포인트"""
     await manager.connect(websocket)
+    stop_event = asyncio.Event()
+    topic_task = None
+    summary_task = None
+
     try:
         # 연결 성공 메시지
         await manager.send_message(
             {"type": "connected", "message": "WebSocket 연결이 성공했습니다."}, websocket
         )
 
-        # 첫 번째 요약 전송: STT 후보업체 리뷰
-        await asyncio.sleep(0.5)
-        await manager.send_message(
-            {"type": "topic", "data": SAMPLE_MEETING_DATA[0]["topic"]}, websocket
-        )
-
-        await asyncio.sleep(1)
-        await stream_summary(websocket, SAMPLE_MEETING_DATA[0]["summary"])
-
-        # 10초 후 두 번째 요약 전송: 도입 일정 및 예산 검토
-        await asyncio.sleep(10)
-
-        await manager.send_message({"type": "separator"}, websocket)
-        await manager.send_message(
-            {"type": "topic", "data": SAMPLE_MEETING_DATA[1]["topic"]}, websocket
-        )
-
-        await asyncio.sleep(0.5)
-        await stream_summary(websocket, SAMPLE_MEETING_DATA[1]["summary"])
-
-        # 10초 후 세 번째 요약 전송: 회의 참석자 액션 아이템
-        await asyncio.sleep(10)
-
-        await manager.send_message({"type": "separator"}, websocket)
-        await manager.send_message(
-            {"type": "topic", "data": SAMPLE_MEETING_DATA[2]["topic"]}, websocket
-        )
-
-        await asyncio.sleep(0.5)
-        await stream_summary(websocket, SAMPLE_MEETING_DATA[2]["summary"])
+        # topic과 summary를 각각 독립적인 태스크로 실행
+        topic_task = asyncio.create_task(send_topics(websocket, stop_event))
+        summary_task = asyncio.create_task(send_summaries(websocket, stop_event))
 
         # 클라이언트 메시지 수신 대기
         while True:
@@ -182,16 +204,24 @@ async def websocket_endpoint(websocket: WebSocket):
             message = json.loads(data)
 
             if message.get("type") == "request_update":
-                # 업데이트 요청 시 처음부터 다시 전송
-                for i, meeting_data in enumerate(SAMPLE_MEETING_DATA):
-                    if i > 0:
-                        await manager.send_message({"type": "separator"}, websocket)
-                    await manager.send_message(
-                        {"type": "topic", "data": meeting_data["topic"]}, websocket
-                    )
-                    await stream_summary(websocket, meeting_data["summary"])
+                # 업데이트 요청 시 기존 태스크 중지하고 새로 시작
+                stop_event.set()
+                if topic_task:
+                    await topic_task
+                if summary_task:
+                    await summary_task
+
+                # 새로운 stop_event로 재시작
+                stop_event = asyncio.Event()
+                topic_task = asyncio.create_task(send_topics(websocket, stop_event))
+                summary_task = asyncio.create_task(send_summaries(websocket, stop_event))
 
     except WebSocketDisconnect:
+        stop_event.set()
+        if topic_task:
+            topic_task.cancel()
+        if summary_task:
+            summary_task.cancel()
         manager.disconnect(websocket)
 
 
