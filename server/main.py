@@ -139,15 +139,19 @@ async def send_topics(websocket: WebSocket, stop_event: asyncio.Event):
     """topic을 20초 간격으로 전송하는 태스크"""
     topic_index = 0
     try:
-        while not stop_event.is_set():
+        while not stop_event.is_set() and topic_index < len(SAMPLE_MEETING_DATA):
             if topic_index > 0:
                 await manager.send_message({"type": "topic_separator"}, websocket)
 
             await manager.send_message(
-                {"type": "topic", "data": SAMPLE_MEETING_DATA[topic_index % len(SAMPLE_MEETING_DATA)]["topic"]},
+                {"type": "topic", "data": SAMPLE_MEETING_DATA[topic_index]["topic"]},
                 websocket
             )
             topic_index += 1
+
+            # 모든 topic을 전송했으면 종료
+            if topic_index >= len(SAMPLE_MEETING_DATA):
+                break
 
             # 20초 대기 (stop_event 체크하면서)
             try:
@@ -163,12 +167,16 @@ async def send_summaries(websocket: WebSocket, stop_event: asyncio.Event):
     """summary를 10초 간격으로 전송하는 태스크"""
     summary_index = 0
     try:
-        while not stop_event.is_set():
+        while not stop_event.is_set() and summary_index < len(SAMPLE_MEETING_DATA):
             if summary_index > 0:
                 await manager.send_message({"type": "separator"}, websocket)
 
-            await stream_summary(websocket, SAMPLE_MEETING_DATA[summary_index % len(SAMPLE_MEETING_DATA)]["summary"])
+            await stream_summary(websocket, SAMPLE_MEETING_DATA[summary_index]["summary"])
             summary_index += 1
+
+            # 모든 summary를 전송했으면 종료
+            if summary_index >= len(SAMPLE_MEETING_DATA):
+                break
 
             # 10초 대기 (stop_event 체크하면서)
             try:
