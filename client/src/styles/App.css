@@ -1,0 +1,86 @@
+.app-container {
+  width: 100%;
+  min-height: 100vh;
+  position: relative;
+  padding: 40px;
+  border: 3px solid var(--accent-color);
+  background-color: var(--bg-primary);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.main-content {
+  text-align: center;
+  padding-top: 100px;
+}
+
+.main-content h1 {
+  color: var(--text-primary);
+  margin-bottom: 16px;
+  font-size: 2rem;
+  transition: color 0.3s ease;
+}
+
+.main-content p {
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+  transition: color 0.3s ease;
+}
+
+/* 다크모드 토글 버튼 */
+.theme-toggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background-color: var(--button-bg);
+  border: 2px solid var(--border-color);
+  cursor: pointer;
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px var(--shadow-color);
+  transition: all 0.3s ease;
+  z-index: 1000;
+}
+
+.theme-toggle:hover {
+  background-color: var(--button-hover);
+  transform: scale(1.1);
+  box-shadow: 0 6px 16px var(--shadow-hover);
+}
+
+.theme-toggle:active {
+  transform: scale(1);
+}
+
+/* 브리핑 노트 버튼 */
+.briefing-button {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  width: 80px;
+  height: 80px;
+  border-radius: 16px;
+  background-color: var(--button-bg);
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  box-shadow: 0 4px 12px var(--shadow-color);
+  transition: all 0.3s ease;
+  line-height: 1.3;
+}
+
+.briefing-button:hover {
+  background-color: var(--button-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px var(--shadow-hover);
+}
+
+.briefing-button:active {
+  transform: translateY(0);
+}
