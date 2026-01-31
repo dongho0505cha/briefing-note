@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { useWebSocket, SEPARATOR_MARKER } from '../hooks/useWebSocket';
+import { useWebSocket, SEPARATOR_MARKER, Participant } from '../hooks/useWebSocket';
 import '../styles/BriefingNote.css';
 
 interface BriefingNoteProps {
@@ -21,16 +21,19 @@ interface Size {
 const MIN_WIDTH = 280;
 const MIN_HEIGHT = 300;
 const DEFAULT_WIDTH = 500;
-const DEFAULT_HEIGHT = 900;
+const DEFAULT_HEIGHT = 1000;
 
 function BriefingNote({ onClose }: BriefingNoteProps) {
-  const { isConnected, topics, activeTopicIndex, summary, isStreaming, connect, disconnect, addTopic } = useWebSocket();
+  const { isConnected, topics, activeTopicIndex, summary, isStreaming, connect, disconnect, addTopic, participants, actionItems, addAssigneeToActionItem, removeAssigneeFromActionItem } = useWebSocket();
   const summaryRef = useRef<HTMLDivElement>(null);
   const topicsContainerRef = useRef<HTMLDivElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [isAddingTopic, setIsAddingTopic] = useState(false);
   const [newTopicText, setNewTopicText] = useState('');
+  const [draggedParticipant, setDraggedParticipant] = useState<Participant | null>(null);
+  const [dragSourceItemId, setDragSourceItemId] = useState<string | null>(null);
+  const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
 
   // 위치 및 크기 상태 (우측 하단에 배치)
   const [position, setPosition] = useState<Position>({
@@ -196,6 +199,61 @@ function BriefingNote({ onClose }: BriefingNoteProps) {
     setIsAddingTopic(false);
   };
 
+  // 참석자 ID로 참석자 정보 조회
+  const getParticipant = (participantId: string) => {
+    return participants.find((p) => p.id === participantId);
+  };
+
+  // 드래그 앤 드롭 핸들러
+  const handleDragStartParticipant = (e: React.DragEvent, participant: Participant, sourceItemId: string) => {
+    setDraggedParticipant(participant);
+    setDragSourceItemId(sourceItemId);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('participantId', participant.id);
+    e.dataTransfer.setData('sourceItemId', sourceItemId);
+  };
+
+  const handleDragOver = (e: React.DragEvent, actionItemId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverItemId(actionItemId);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverItemId(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, actionItemId: string) => {
+    e.preventDefault();
+    const participantId = e.dataTransfer.getData('participantId');
+    const sourceItemId = e.dataTransfer.getData('sourceItemId');
+
+    if (participantId) {
+      // 같은 액션 아이템으로 드롭한 경우 무시
+      if (sourceItemId === actionItemId) {
+        setDraggedParticipant(null);
+        setDragOverItemId(null);
+        return;
+      }
+
+      // 이전 액션 아이템에서 제거
+      if (sourceItemId) {
+        removeAssigneeFromActionItem(sourceItemId, participantId);
+      }
+
+      // 새 액션 아이템에 추가
+      addAssigneeToActionItem(actionItemId, participantId);
+    }
+    setDraggedParticipant(null);
+    setDragOverItemId(null);
+    setDragSourceItemId(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedParticipant(null);
+    setDragOverItemId(null);
+  };
+
   return (
     <div
       ref={popupRef}
@@ -287,6 +345,47 @@ function BriefingNote({ onClose }: BriefingNoteProps) {
             isConnected ? '요약을 불러오는 중...' : ''
           )}
           {isStreaming && <span className="cursor">|</span>}
+        </div>
+      </div>
+
+      {/* 액션 아이템 영역 */}
+      <div className="action-items-section">
+        <div className="action-items-header">액션 아이템</div>
+        <div className="action-items-list">
+          {actionItems.map((item, index) => {
+            const assignees = item.assigneeIds.map((id) => getParticipant(id)).filter(Boolean);
+            return (
+              <div
+                key={item.id}
+                className={`action-item ${dragOverItemId === item.id ? 'drag-over' : ''}`}
+                onDragOver={(e) => handleDragOver(e, item.id)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, item.id)}
+              >
+                <span className="action-item-number">{index + 1}.</span>
+                <span className="action-item-content">{item.content}</span>
+                <div className="assignees-container">
+                  {assignees.map((assignee, idx) => assignee && (
+                    <div
+                      key={assignee.id}
+                      className="assignee-avatar"
+                      style={{
+                        backgroundColor: assignee.color,
+                        marginLeft: idx > 0 ? '-10px' : '0',
+                        zIndex: assignees.length - idx
+                      }}
+                      draggable
+                      onDragStart={(e) => handleDragStartParticipant(e, assignee, item.id)}
+                      onDragEnd={handleDragEnd}
+                      title={`${assignee.name} - 다른 액션 아이템으로 드래그하여 이동`}
+                    >
+                      {assignee.initial}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

@@ -38,6 +38,21 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
+# 참석자 데이터
+PARTICIPANTS = [
+    {"id": "p1", "name": "차동호", "initial": "차", "color": "#4A90D9"},
+    {"id": "p2", "name": "이덕형", "initial": "이", "color": "#E67E22"},
+    {"id": "p3", "name": "이재욱", "initial": "재", "color": "#27AE60"},
+]
+
+# 액션 아이템 데이터
+ACTION_ITEMS = [
+    {"id": "a1", "content": "PoC 일정 수립 및 킥오프 미팅 준비", "assigneeIds": ["p1"]},
+    {"id": "a2", "content": "테스트 환경 구축 및 설정", "assigneeIds": ["p2", "p3"]},
+    {"id": "a3", "content": "STT EX API 기술 검토 보고서 작성", "assigneeIds": ["p2"]},
+    {"id": "a4", "content": "상세 비용 산출서 작성", "assigneeIds": ["p3"]},
+]
+
 # 샘플 회의 데이터 (마크다운 형식)
 SAMPLE_MEETING_DATA = [
     {
@@ -204,6 +219,16 @@ async def websocket_endpoint(websocket: WebSocket):
         all_topics = [item["topic"] for item in SAMPLE_MEETING_DATA]
         await manager.send_message(
             {"type": "topics_list", "data": all_topics}, websocket
+        )
+
+        # 참석자 목록 전송
+        await manager.send_message(
+            {"type": "participants", "data": PARTICIPANTS}, websocket
+        )
+
+        # 액션 아이템 목록 전송
+        await manager.send_message(
+            {"type": "action_items", "data": ACTION_ITEMS}, websocket
         )
 
         # topic과 summary를 각각 독립적인 태스크로 실행

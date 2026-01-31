@@ -1,8 +1,23 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 
+// 참석자 타입
+export interface Participant {
+  id: string;
+  name: string;
+  initial: string;
+  color: string;
+}
+
+// 액션 아이템 타입
+export interface ActionItem {
+  id: string;
+  content: string;
+  assigneeIds: string[];
+}
+
 interface WebSocketMessage {
-  type: 'connected' | 'topics_list' | 'active_topic' | 'summary_start' | 'summary_chunk' | 'summary_end' | 'separator';
-  data?: string | string[];
+  type: 'connected' | 'topics_list' | 'active_topic' | 'summary_start' | 'summary_chunk' | 'summary_end' | 'separator' | 'participants' | 'action_items';
+  data?: string | string[] | Participant[] | ActionItem[];
   index?: number;
   message?: string;
 }
@@ -16,9 +31,13 @@ interface UseWebSocketReturn {
   activeTopicIndex: number;
   summary: string;
   isStreaming: boolean;
+  participants: Participant[];
+  actionItems: ActionItem[];
   connect: () => void;
   disconnect: () => void;
   addTopic: (topic: string) => void;
+  addAssigneeToActionItem: (actionItemId: string, participantId: string) => void;
+  removeAssigneeFromActionItem: (actionItemId: string, participantId: string) => void;
 }
 
 const WS_URL = 'ws://localhost:8000/ws/briefing';
@@ -29,6 +48,8 @@ export function useWebSocket(): UseWebSocketReturn {
   const [activeTopicIndex, setActiveTopicIndex] = useState(-1);
   const [summary, setSummary] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
+  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [actionItems, setActionItems] = useState<ActionItem[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
 
   const connect = useCallback(() => {
@@ -81,6 +102,20 @@ export function useWebSocket(): UseWebSocketReturn {
           // 구분선 마커 추가
           setSummary((prev) => prev + SEPARATOR_MARKER);
           break;
+
+        case 'participants':
+          // 참석자 목록 수신
+          if (Array.isArray(message.data)) {
+            setParticipants(message.data as Participant[]);
+          }
+          break;
+
+        case 'action_items':
+          // 액션 아이템 목록 수신
+          if (Array.isArray(message.data)) {
+            setActionItems(message.data as ActionItem[]);
+          }
+          break;
       }
     };
 
@@ -106,12 +141,36 @@ export function useWebSocket(): UseWebSocketReturn {
     setActiveTopicIndex(-1);
     setSummary('');
     setIsStreaming(false);
+    setParticipants([]);
+    setActionItems([]);
   }, []);
 
   const addTopic = useCallback((topic: string) => {
     if (topic.trim()) {
       setTopics((prev) => [...prev, topic.trim()]);
     }
+  }, []);
+
+  const addAssigneeToActionItem = useCallback((actionItemId: string, participantId: string) => {
+    setActionItems((prev) =>
+      prev.map((item) => {
+        if (item.id === actionItemId && !item.assigneeIds.includes(participantId)) {
+          return { ...item, assigneeIds: [...item.assigneeIds, participantId] };
+        }
+        return item;
+      })
+    );
+  }, []);
+
+  const removeAssigneeFromActionItem = useCallback((actionItemId: string, participantId: string) => {
+    setActionItems((prev) =>
+      prev.map((item) => {
+        if (item.id === actionItemId) {
+          return { ...item, assigneeIds: item.assigneeIds.filter((id) => id !== participantId) };
+        }
+        return item;
+      })
+    );
   }, []);
 
   useEffect(() => {
@@ -126,8 +185,12 @@ export function useWebSocket(): UseWebSocketReturn {
     activeTopicIndex,
     summary,
     isStreaming,
+    participants,
+    actionItems,
     connect,
     disconnect,
     addTopic,
+    addAssigneeToActionItem,
+    removeAssigneeFromActionItem,
   };
 }
