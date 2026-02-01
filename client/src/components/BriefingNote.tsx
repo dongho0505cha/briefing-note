@@ -40,6 +40,9 @@ function BriefingNote({ onClose }: BriefingNoteProps) {
   const [draggedParticipant, setDraggedParticipant] = useState<Participant | null>(null);
   const [dragSourceItemId, setDragSourceItemId] = useState<string | null>(null);
   const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
+  const [isTrashOver, setIsTrashOver] = useState(false);
+  const [addingAssigneeToItemId, setAddingAssigneeToItemId] = useState<string | null>(null);
+  const [popupPosition, setPopupPosition] = useState<{ top: number; right: number } | null>(null);
 
   // 위치 및 크기 상태 (우측 하단에 배치)
   const [position, setPosition] = useState<Position>({
@@ -316,6 +319,61 @@ function BriefingNote({ onClose }: BriefingNoteProps) {
   const handleDragEnd = () => {
     setDraggedParticipant(null);
     setDragOverItemId(null);
+    setIsTrashOver(false);
+  };
+
+  // 휴지통 드롭 핸들러
+  const handleTrashDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setIsTrashOver(true);
+  };
+
+  const handleTrashDragLeave = () => {
+    setIsTrashOver(false);
+  };
+
+  const handleTrashDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const participantId = e.dataTransfer.getData('participantId');
+    const sourceItemId = e.dataTransfer.getData('sourceItemId');
+
+    if (participantId && sourceItemId) {
+      removeAssigneeFromActionItem(sourceItemId, participantId);
+    }
+    setDraggedParticipant(null);
+    setDragOverItemId(null);
+    setDragSourceItemId(null);
+    setIsTrashOver(false);
+  };
+
+  // 참석자 추가 팝업 토글
+  const handleAddAssigneeClick = (e: React.MouseEvent<HTMLButtonElement>, actionItemId: string) => {
+    if (addingAssigneeToItemId === actionItemId) {
+      setAddingAssigneeToItemId(null);
+      setPopupPosition(null);
+    } else {
+      const button = e.currentTarget;
+      const rect = button.getBoundingClientRect();
+      setPopupPosition({
+        top: rect.top - 8, // 버튼 위에 표시 (여유 8px)
+        right: window.innerWidth - rect.right
+      });
+      setAddingAssigneeToItemId(actionItemId);
+    }
+  };
+
+  // 참석자 선택
+  const handleSelectParticipant = (actionItemId: string, participantId: string) => {
+    addAssigneeToActionItem(actionItemId, participantId);
+    setAddingAssigneeToItemId(null);
+  };
+
+  // 이미 할당된 참석자 제외한 목록
+  const getAvailableParticipants = (actionItemId: string) => {
+    const item = actionItems.find(i => i.id === actionItemId);
+    if (!item) return participants;
+    return participants.filter(p => !item.assigneeIds.includes(p.id));
   };
 
   return (
@@ -426,10 +484,25 @@ function BriefingNote({ onClose }: BriefingNoteProps) {
 
       {/* 액션 아이템 영역 */}
       <div className="action-items-section" style={{ height: actionItemsHeight }}>
-        <div className="action-items-header">액션 아이템</div>
+        <div className="action-items-header">
+          <span>액션 아이템</span>
+          {/* 휴지통 - 드래그 중일 때만 표시 */}
+          {draggedParticipant && (
+            <div
+              className={`trash-drop-zone ${isTrashOver ? 'active' : ''}`}
+              onDragOver={handleTrashDragOver}
+              onDragLeave={handleTrashDragLeave}
+              onDrop={handleTrashDrop}
+              title="여기에 드롭하여 담당자 제거"
+            >
+              🗑️
+            </div>
+          )}
+        </div>
         <div className="action-items-list" ref={actionItemsListRef}>
           {actionItems.map((item, index) => {
             const assignees = item.assigneeIds.map((id) => getParticipant(id)).filter(Boolean);
+            const availableParticipants = getAvailableParticipants(item.id);
             return (
               <div
                 key={item.id}
@@ -458,12 +531,54 @@ function BriefingNote({ onClose }: BriefingNoteProps) {
                       {assignee.initial}
                     </div>
                   ))}
+                  {/* 담당자 추가 버튼 */}
+                  {availableParticipants.length > 0 && (
+                    <div className="add-assignee-wrapper">
+                      <button
+                        className={`add-assignee-button ${addingAssigneeToItemId === item.id ? 'active' : ''}`}
+                        onClick={(e) => handleAddAssigneeClick(e, item.id)}
+                        title="담당자 추가"
+                        style={{ marginLeft: assignees.length > 0 ? '-10px' : '0' }}
+                      >
+                        +
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             );
           })}
         </div>
       </div>
+
+      {/* 참석자 선택 팝업 - fixed position으로 stacking context 문제 해결 */}
+      {addingAssigneeToItemId && popupPosition && (
+        <div
+          className="participant-popup fixed-popup"
+          style={{
+            position: 'fixed',
+            top: popupPosition.top,
+            right: popupPosition.right,
+            transform: 'translateY(-100%)'
+          }}
+        >
+          {getAvailableParticipants(addingAssigneeToItemId).map((p) => (
+            <div
+              key={p.id}
+              className="participant-option"
+              onClick={() => handleSelectParticipant(addingAssigneeToItemId, p.id)}
+            >
+              <div
+                className="participant-option-avatar"
+                style={{ backgroundColor: p.color }}
+              >
+                {p.initial}
+              </div>
+              <span className="participant-option-name">{p.name}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
