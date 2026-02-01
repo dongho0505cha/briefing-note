@@ -23,10 +23,16 @@ const MIN_HEIGHT = 300;
 const DEFAULT_WIDTH = 500;
 const DEFAULT_HEIGHT = 1000;
 
+// 섹션 높이 기본값 및 최소값
+const DEFAULT_TOPICS_HEIGHT = 180;
+const DEFAULT_ACTION_ITEMS_HEIGHT = 160;
+const MIN_SECTION_HEIGHT = 80;
+
 function BriefingNote({ onClose }: BriefingNoteProps) {
   const { isConnected, topics, activeTopicIndex, summary, isStreaming, connect, disconnect, addTopic, participants, actionItems, addAssigneeToActionItem, removeAssigneeFromActionItem } = useWebSocket();
   const summaryRef = useRef<HTMLDivElement>(null);
   const topicsContainerRef = useRef<HTMLDivElement>(null);
+  const actionItemsListRef = useRef<HTMLDivElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [isAddingTopic, setIsAddingTopic] = useState(false);
@@ -48,6 +54,12 @@ function BriefingNote({ onClose }: BriefingNoteProps) {
   const resizeStart = useRef<{ x: number; y: number; width: number; height: number; posX: number; posY: number }>({
     x: 0, y: 0, width: 0, height: 0, posX: 0, posY: 0
   });
+
+  // 섹션 높이 상태
+  const [topicsHeight, setTopicsHeight] = useState(DEFAULT_TOPICS_HEIGHT);
+  const [actionItemsHeight, setActionItemsHeight] = useState(DEFAULT_ACTION_ITEMS_HEIGHT);
+  const [isResizingSection, setIsResizingSection] = useState<'topics' | 'actionItems' | null>(null);
+  const sectionResizeStart = useRef<{ y: number; height: number }>({ y: 0, height: 0 });
 
   // 팝업 열릴 때 WebSocket 연결
   useEffect(() => {
@@ -99,6 +111,41 @@ function BriefingNote({ onClose }: BriefingNoteProps) {
     };
   }, [size, position]);
 
+  // 섹션 최대 높이 계산 (내용이 스크롤 없이 보이는 높이)
+  const getMaxTopicsHeight = useCallback(() => {
+    if (!topicsContainerRef.current) return Infinity;
+    // topics-list의 scrollHeight + 패딩(16px * 2) + add-topic-area(약 50px)
+    const contentHeight = topicsContainerRef.current.scrollHeight;
+    const fixedHeight = 32 + 50; // 패딩 + 안건추가
+    return contentHeight + fixedHeight;
+  }, []);
+
+  const getMaxActionItemsHeight = useCallback(() => {
+    if (!actionItemsListRef.current) return Infinity;
+    // 각 action-item의 실제 높이를 합산 (scrollHeight는 컨테이너가 크면 컨테이너 크기를 반환함)
+    const children = actionItemsListRef.current.children;
+    let contentHeight = 0;
+    for (let i = 0; i < children.length; i++) {
+      contentHeight += (children[i] as HTMLElement).offsetHeight;
+      if (i < children.length - 1) {
+        contentHeight += 8; // gap
+      }
+    }
+    const fixedHeight = 24 + 30; // 패딩(12*2) + 헤더(약 30px)
+    return contentHeight + fixedHeight;
+  }, []);
+
+  // 섹션 리사이즈 시작
+  const handleSectionResizeStart = useCallback((e: React.MouseEvent, section: 'topics' | 'actionItems') => {
+    e.stopPropagation();
+    e.preventDefault();
+    setIsResizingSection(section);
+    sectionResizeStart.current = {
+      y: e.clientY,
+      height: section === 'topics' ? topicsHeight : actionItemsHeight
+    };
+  }, [topicsHeight, actionItemsHeight]);
+
   // 마우스 이동 처리
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -146,15 +193,32 @@ function BriefingNote({ onClose }: BriefingNoteProps) {
         setSize({ width: newWidth, height: newHeight });
         setPosition({ x: newX, y: newY });
       }
+
+      // 섹션 리사이즈 처리
+      if (isResizingSection) {
+        const deltaY = e.clientY - sectionResizeStart.current.y;
+        if (isResizingSection === 'topics') {
+          // 주제 영역: 아래로 드래그하면 높이 증가 (최대 높이 제한)
+          const maxHeight = getMaxTopicsHeight();
+          const newHeight = Math.min(maxHeight, Math.max(MIN_SECTION_HEIGHT, sectionResizeStart.current.height + deltaY));
+          setTopicsHeight(newHeight);
+        } else if (isResizingSection === 'actionItems') {
+          // 액션 아이템 영역: 위로 드래그하면 높이 증가 (최대 높이 제한)
+          const maxHeight = getMaxActionItemsHeight();
+          const newHeight = Math.min(maxHeight, Math.max(MIN_SECTION_HEIGHT, sectionResizeStart.current.height - deltaY));
+          setActionItemsHeight(newHeight);
+        }
+      }
     };
 
     const handleMouseUp = () => {
       setIsDragging(false);
       setIsResizing(false);
       setResizeDirection('');
+      setIsResizingSection(null);
     };
 
-    if (isDragging || isResizing) {
+    if (isDragging || isResizing || isResizingSection) {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
       document.body.style.userSelect = 'none';
@@ -165,7 +229,7 @@ function BriefingNote({ onClose }: BriefingNoteProps) {
       document.removeEventListener('mouseup', handleMouseUp);
       document.body.style.userSelect = '';
     };
-  }, [isDragging, isResizing, resizeDirection, size.width, size.height]);
+  }, [isDragging, isResizing, isResizingSection, resizeDirection, size.width, size.height, getMaxTopicsHeight, getMaxActionItemsHeight]);
 
   const handleClose = () => {
     disconnect();
@@ -275,7 +339,7 @@ function BriefingNote({ onClose }: BriefingNoteProps) {
       <div className="resize-handle resize-se" onMouseDown={(e) => handleResizeStart(e, 'se')} />
       <div className="resize-handle resize-sw" onMouseDown={(e) => handleResizeStart(e, 'sw')} />
 
-      <div className="popup-header" onMouseDown={handleDragStart}>
+      <div className="popup-header" style={{ height: topicsHeight }} onMouseDown={handleDragStart}>
         <button className="close-button" onClick={handleClose}>
           &times;
         </button>
@@ -326,10 +390,14 @@ function BriefingNote({ onClose }: BriefingNoteProps) {
             </button>
           )}
         </div>
-        <div className="connection-status">
-          <span className={`status-dot ${isConnected ? 'connected' : 'disconnected'}`}></span>
-          {isConnected ? '연결됨' : '연결 중...'}
-        </div>
+      </div>
+
+      {/* 주제 영역 리사이즈 핸들 */}
+      <div
+        className={`section-resize-handle ${isResizingSection === 'topics' ? 'active' : ''}`}
+        onMouseDown={(e) => handleSectionResizeStart(e, 'topics')}
+      >
+        <div className="section-resize-grip" />
       </div>
 
       <div className="popup-content" ref={summaryRef}>
@@ -348,10 +416,18 @@ function BriefingNote({ onClose }: BriefingNoteProps) {
         </div>
       </div>
 
+      {/* 액션 아이템 영역 리사이즈 핸들 */}
+      <div
+        className={`section-resize-handle ${isResizingSection === 'actionItems' ? 'active' : ''}`}
+        onMouseDown={(e) => handleSectionResizeStart(e, 'actionItems')}
+      >
+        <div className="section-resize-grip" />
+      </div>
+
       {/* 액션 아이템 영역 */}
-      <div className="action-items-section">
+      <div className="action-items-section" style={{ height: actionItemsHeight }}>
         <div className="action-items-header">액션 아이템</div>
-        <div className="action-items-list">
+        <div className="action-items-list" ref={actionItemsListRef}>
           {actionItems.map((item, index) => {
             const assignees = item.assigneeIds.map((id) => getParticipant(id)).filter(Boolean);
             return (
