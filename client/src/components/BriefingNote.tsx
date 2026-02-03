@@ -117,14 +117,11 @@ function BriefingNote({ onClose }: BriefingNoteProps) {
   // 섹션 최대 높이 계산 (내용이 스크롤 없이 보이는 높이)
   const getMaxTopicsHeight = useCallback(() => {
     if (!topicsContainerRef.current) return Infinity;
-    // 각 topic-item의 실제 높이를 합산
+    // 각 topic-item의 실제 높이를 합산 (gap이 0이므로 gap 계산 불필요)
     const children = topicsContainerRef.current.children;
     let contentHeight = 0;
     for (let i = 0; i < children.length; i++) {
       contentHeight += (children[i] as HTMLElement).offsetHeight;
-      if (i < children.length - 1) {
-        contentHeight += 8; // gap
-      }
     }
     // 헤더 패딩(16px * 2) + topics-list margin-top(8px) + add-topic-area(약 60px)
     const fixedHeight = 32 + 8 + 60;
@@ -416,21 +413,20 @@ function BriefingNote({ onClose }: BriefingNoteProps) {
                 key={index}
                 className={`topic-item ${index === activeTopicIndex ? 'active' : ''} ${index < activeTopicIndex ? 'completed' : ''}`}
               >
-                <span className="topic-indicator">
-                  {index < activeTopicIndex ? (
-                    <span className="check-icon">✓</span>
-                  ) : index === activeTopicIndex ? (
-                    <span className="arrow-icon">›</span>
-                  ) : null}
-                </span>
+                <span className="topic-line"></span>
                 <span className="topic-text">
                   <Markdown remarkPlugins={[remarkGfm]}>{topicText}</Markdown>
                 </span>
                 {index === activeTopicIndex && (
-                  <span className="topic-loading-dots">
+                  <span className="topic-status-icon">
                     <span className="dot"></span>
                     <span className="dot"></span>
                     <span className="dot"></span>
+                  </span>
+                )}
+                {index < activeTopicIndex && (
+                  <span className="topic-status-icon">
+                    <span className="check-icon">✓</span>
                   </span>
                 )}
               </div>
