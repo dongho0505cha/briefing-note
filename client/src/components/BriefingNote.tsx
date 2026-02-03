@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { useWebSocket, SEPARATOR_MARKER, Participant } from '../hooks/useWebSocket';
+import { useWebSocket, Participant } from '../hooks/useWebSocket';
 import '../styles/BriefingNote.css';
 
 interface BriefingNoteProps {
@@ -29,7 +29,7 @@ const DEFAULT_ACTION_ITEMS_HEIGHT = 160;
 const MIN_SECTION_HEIGHT = 80;
 
 function BriefingNote({ onClose }: BriefingNoteProps) {
-  const { isConnected, topics, activeTopicIndex, summary, isStreaming, connect, disconnect, addTopic, participants, actionItems, addAssigneeToActionItem, removeAssigneeFromActionItem } = useWebSocket();
+  const { isConnected, topics, activeTopicIndex, summarySections, currentSectionContent, currentSectionTimestamp, isStreaming, connect, disconnect, addTopic, participants, actionItems, addAssigneeToActionItem, removeAssigneeFromActionItem } = useWebSocket();
   const summaryRef = useRef<HTMLDivElement>(null);
   const topicsContainerRef = useRef<HTMLDivElement>(null);
   const actionItemsListRef = useRef<HTMLDivElement>(null);
@@ -77,7 +77,7 @@ function BriefingNote({ onClose }: BriefingNoteProps) {
     if (summaryRef.current) {
       summaryRef.current.scrollTop = summaryRef.current.scrollHeight;
     }
-  }, [summary]);
+  }, [summarySections, currentSectionContent]);
 
   // 활성 주제로 스크롤
   useEffect(() => {
@@ -117,9 +117,17 @@ function BriefingNote({ onClose }: BriefingNoteProps) {
   // 섹션 최대 높이 계산 (내용이 스크롤 없이 보이는 높이)
   const getMaxTopicsHeight = useCallback(() => {
     if (!topicsContainerRef.current) return Infinity;
-    // topics-list의 scrollHeight + 패딩(16px * 2) + add-topic-area(약 50px)
-    const contentHeight = topicsContainerRef.current.scrollHeight;
-    const fixedHeight = 32 + 50; // 패딩 + 안건추가
+    // 각 topic-item의 실제 높이를 합산
+    const children = topicsContainerRef.current.children;
+    let contentHeight = 0;
+    for (let i = 0; i < children.length; i++) {
+      contentHeight += (children[i] as HTMLElement).offsetHeight;
+      if (i < children.length - 1) {
+        contentHeight += 8; // gap
+      }
+    }
+    // 헤더 패딩(16px * 2) + topics-list margin-top(8px) + add-topic-area(약 60px)
+    const fixedHeight = 32 + 8 + 60;
     return contentHeight + fixedHeight;
   }, []);
 
@@ -408,10 +416,23 @@ function BriefingNote({ onClose }: BriefingNoteProps) {
                 key={index}
                 className={`topic-item ${index === activeTopicIndex ? 'active' : ''} ${index < activeTopicIndex ? 'completed' : ''}`}
               >
-                <span className="topic-number">{index + 1}</span>
+                <span className="topic-indicator">
+                  {index < activeTopicIndex ? (
+                    <span className="check-icon">✓</span>
+                  ) : index === activeTopicIndex ? (
+                    <span className="arrow-icon">›</span>
+                  ) : null}
+                </span>
                 <span className="topic-text">
                   <Markdown remarkPlugins={[remarkGfm]}>{topicText}</Markdown>
                 </span>
+                {index === activeTopicIndex && (
+                  <span className="topic-loading-dots">
+                    <span className="dot"></span>
+                    <span className="dot"></span>
+                    <span className="dot"></span>
+                  </span>
+                )}
               </div>
             ))
           ) : (
@@ -460,13 +481,38 @@ function BriefingNote({ onClose }: BriefingNoteProps) {
 
       <div className="popup-content" ref={summaryRef}>
         <div className="summary-text markdown-content">
-          {summary ? (
-            summary.split(SEPARATOR_MARKER).map((section, index) => (
-              <div key={index} className="summary-section">
-                {index > 0 && <div className="summary-separator" />}
-                <Markdown remarkPlugins={[remarkGfm]}>{section}</Markdown>
-              </div>
-            ))
+          {summarySections.length > 0 || currentSectionContent ? (
+            <>
+              {summarySections.map((section, index) => (
+                <div key={index} className="summary-section">
+                  {index > 0 && (
+                    <div className="summary-separator">
+                      <span className="separator-time">{section.timestamp}</span>
+                    </div>
+                  )}
+                  {index === 0 && (
+                    <div className="summary-separator first-separator">
+                      <span className="separator-time">{section.timestamp}</span>
+                    </div>
+                  )}
+                  <Markdown remarkPlugins={[remarkGfm]}>{section.content}</Markdown>
+                </div>
+              ))}
+              {currentSectionContent && (
+                <div className="summary-section">
+                  {summarySections.length > 0 ? (
+                    <div className="summary-separator">
+                      <span className="separator-time">{currentSectionTimestamp}</span>
+                    </div>
+                  ) : (
+                    <div className="summary-separator first-separator">
+                      <span className="separator-time">{currentSectionTimestamp}</span>
+                    </div>
+                  )}
+                  <Markdown remarkPlugins={[remarkGfm]}>{currentSectionContent}</Markdown>
+                </div>
+              )}
+            </>
           ) : (
             isConnected ? '요약을 불러오는 중...' : ''
           )}
@@ -500,7 +546,7 @@ function BriefingNote({ onClose }: BriefingNoteProps) {
           )}
         </div>
         <div className="action-items-list" ref={actionItemsListRef}>
-          {actionItems.map((item, index) => {
+          {actionItems.map((item) => {
             const assignees = item.assigneeIds.map((id) => getParticipant(id)).filter(Boolean);
             const availableParticipants = getAvailableParticipants(item.id);
             return (
@@ -511,7 +557,7 @@ function BriefingNote({ onClose }: BriefingNoteProps) {
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, item.id)}
               >
-                <span className="action-item-number">{index + 1}.</span>
+                <span className="action-item-bullet">•</span>
                 <span className="action-item-content">{item.content}</span>
                 <div className="assignees-container">
                   {assignees.map((assignee, idx) => assignee && (

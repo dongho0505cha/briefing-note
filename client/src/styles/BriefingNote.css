@@ -201,55 +201,102 @@
 
 .topic-item {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  background-color: rgba(255, 255, 255, 0.1);
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background-color: transparent;
   opacity: 0.5;
-  transform: translateX(-10px);
-  transition: all 0.4s ease;
+  transition: all 0.3s ease;
+  min-height: 28px;
 }
 
 .topic-item.active {
   opacity: 1;
-  transform: translateX(0);
-  background-color: rgba(255, 255, 255, 0.2);
-  box-shadow: 0 0 12px rgba(255, 255, 255, 0.15);
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 .topic-item.completed {
   opacity: 0.7;
-  transform: translateX(0);
 }
 
 .topic-item.loading {
   opacity: 0.6;
-  transform: translateX(0);
 }
 
-.topic-number {
+/* 주제 인디케이터 (체크/화살표 아이콘) */
+.topic-indicator {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background-color: rgba(255, 255, 255, 0.2);
-  font-size: 12px;
-  font-weight: 600;
+  min-width: 18px;
+  height: 18px;
   flex-shrink: 0;
-  transition: all 0.3s ease;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent-color);
 }
 
-.topic-item.active .topic-number {
+.topic-item.completed .topic-indicator .check-icon {
+  color: #4ade80;
+  font-size: 16px;
+}
+
+.topic-item.active .topic-indicator .arrow-icon {
+  color: var(--accent-color);
+  font-size: 18px;
+  animation: arrowPulse 1s ease-in-out infinite;
+}
+
+@keyframes arrowPulse {
+  0%, 100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  50% {
+    opacity: 0.7;
+    transform: translateX(2px);
+  }
+}
+
+/* 진행 중인 주제의 물결치는 점들 */
+.topic-loading-dots {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+  padding-left: 8px;
+}
+
+.topic-loading-dots .dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
   background-color: var(--accent-color);
-  color: white;
+  animation: dotWave 1.4s ease-in-out infinite;
 }
 
-.topic-item.completed .topic-number {
-  background-color: rgba(76, 175, 80, 0.8);
-  color: white;
+.topic-loading-dots .dot:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.topic-loading-dots .dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.topic-loading-dots .dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes dotWave {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
 }
 
 .topic-text {
@@ -451,28 +498,36 @@
   }
 }
 
-/* 요약 구분선 */
+/* 요약 구분선 - 시간 표시 */
 .summary-separator {
   display: flex;
   align-items: center;
-  margin: 20px 0;
-  gap: 12px;
+  margin: 20px 0 12px 0;
+  gap: 0;
 }
 
-.summary-separator::before,
 .summary-separator::after {
   content: '';
   flex: 1;
   height: 1px;
-  background: linear-gradient(90deg, transparent, var(--accent-color), transparent);
+  background: linear-gradient(90deg, var(--border-color), transparent);
+  margin-left: 12px;
 }
 
-.summary-separator::before {
-  background: linear-gradient(90deg, transparent, var(--accent-color));
+.summary-separator.first-separator {
+  margin-top: 0;
 }
 
-.summary-separator::after {
-  background: linear-gradient(90deg, var(--accent-color), transparent);
+.separator-time {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent-color);
+  background-color: var(--bg-tertiary);
+  padding: 4px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  white-space: nowrap;
+  letter-spacing: 0.5px;
 }
 
 .summary-section {
@@ -686,12 +741,12 @@
   transform: scale(1.02);
 }
 
-.action-item-number {
-  font-size: 13px;
+.action-item-bullet {
+  font-size: 18px;
   font-weight: 600;
-  color: var(--header-text);
-  opacity: 0.7;
-  min-width: 20px;
+  color: var(--accent-color);
+  min-width: 16px;
+  line-height: 1;
 }
 
 .action-item-content {
@@ -737,25 +792,23 @@
 
 /* 휴지통 드롭 영역 */
 .trash-drop-zone {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  font-size: 12px;
   background-color: rgba(255, 255, 255, 0.1);
-  border: 2px dashed rgba(255, 255, 255, 0.3);
+  border: 1px dashed rgba(255, 255, 255, 0.3);
   cursor: pointer;
-  transition: all 0.2s ease;
-  animation: fadeIn 0.2s ease;
+  transition: all 0.15s ease;
 }
 
 .trash-drop-zone:hover,
 .trash-drop-zone.active {
   background-color: rgba(239, 68, 68, 0.3);
   border-color: #ef4444;
-  transform: scale(1.1);
 }
 
 @keyframes fadeIn {

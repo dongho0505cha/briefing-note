@@ -25,11 +25,19 @@ interface WebSocketMessage {
 // 구분선 마커 (컴포넌트에서 이를 감지하여 렌더링)
 export const SEPARATOR_MARKER = '___SEPARATOR___';
 
+// 요약 섹션 타입 (시간 정보 포함)
+export interface SummarySection {
+  content: string;
+  timestamp: string; // HH:MM 형식
+}
+
 interface UseWebSocketReturn {
   isConnected: boolean;
   topics: string[];
   activeTopicIndex: number;
-  summary: string;
+  summarySections: SummarySection[];
+  currentSectionContent: string;
+  currentSectionTimestamp: string;
   isStreaming: boolean;
   participants: Participant[];
   actionItems: ActionItem[];
@@ -46,11 +54,19 @@ export function useWebSocket(): UseWebSocketReturn {
   const [isConnected, setIsConnected] = useState(false);
   const [topics, setTopics] = useState<string[]>([]);
   const [activeTopicIndex, setActiveTopicIndex] = useState(-1);
-  const [summary, setSummary] = useState('');
+  const [summarySections, setSummarySections] = useState<SummarySection[]>([]);
+  const [currentSectionContent, setCurrentSectionContent] = useState('');
+  const [currentSectionTimestamp, setCurrentSectionTimestamp] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [actionItems, setActionItems] = useState<ActionItem[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
+
+  // 현재 시간을 HH:MM 형식으로 반환
+  const getCurrentTime = () => {
+    const now = new Date();
+    return now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
+  };
 
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -75,7 +91,7 @@ export function useWebSocket(): UseWebSocketReturn {
         case 'topics_list':
           // 모든 topic 목록 수신
           if (Array.isArray(message.data)) {
-            setTopics(message.data);
+            setTopics(message.data as string[]);
           }
           break;
 
@@ -88,10 +104,14 @@ export function useWebSocket(): UseWebSocketReturn {
 
         case 'summary_start':
           setIsStreaming(true);
+          // 첫 섹션 시작 시 타임스탬프 설정
+          if (!currentSectionTimestamp) {
+            setCurrentSectionTimestamp(getCurrentTime());
+          }
           break;
 
         case 'summary_chunk':
-          setSummary((prev) => prev + (message.data || ''));
+          setCurrentSectionContent((prev) => prev + (message.data || ''));
           break;
 
         case 'summary_end':
@@ -99,8 +119,18 @@ export function useWebSocket(): UseWebSocketReturn {
           break;
 
         case 'separator':
-          // 구분선 마커 추가
-          setSummary((prev) => prev + SEPARATOR_MARKER);
+          // 현재 섹션을 저장하고 새 섹션 시작
+          setCurrentSectionContent((prev) => {
+            if (prev.trim()) {
+              setSummarySections((sections) => [...sections, {
+                content: prev,
+                timestamp: currentSectionTimestamp || getCurrentTime()
+              }]);
+            }
+            return '';
+          });
+          // 새 섹션을 위한 타임스탬프 설정
+          setCurrentSectionTimestamp(getCurrentTime());
           break;
 
         case 'participants':
@@ -139,7 +169,9 @@ export function useWebSocket(): UseWebSocketReturn {
     setIsConnected(false);
     setTopics([]);
     setActiveTopicIndex(-1);
-    setSummary('');
+    setSummarySections([]);
+    setCurrentSectionContent('');
+    setCurrentSectionTimestamp('');
     setIsStreaming(false);
     setParticipants([]);
     setActionItems([]);
@@ -183,7 +215,9 @@ export function useWebSocket(): UseWebSocketReturn {
     isConnected,
     topics,
     activeTopicIndex,
-    summary,
+    summarySections,
+    currentSectionContent,
+    currentSectionTimestamp,
     isStreaming,
     participants,
     actionItems,

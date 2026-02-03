@@ -5,7 +5,8 @@
       "Bash(python -m venv:*)",
       "Bash(venvScriptspip install -r requirements.txt)",
       "Bash(./venv/Scripts/pip.exe install:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }
